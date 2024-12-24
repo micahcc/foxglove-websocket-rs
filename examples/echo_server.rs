@@ -1,5 +1,7 @@
 use std::collections::HashMap;
 
+use async_trait::async_trait;
+
 use foxglove_websocket_rs::CallId;
 use foxglove_websocket_rs::Capability;
 use foxglove_websocket_rs::ChannelId;
@@ -14,6 +16,7 @@ use foxglove_websocket_rs::ServiceId;
 
 struct ExampleFoxgloveServerListener {}
 
+#[async_trait]
 impl FoxgloveServerListener for ExampleFoxgloveServerListener {
     fn name(&self) -> String {
         return "example_listener".to_string();
@@ -100,7 +103,10 @@ impl FoxgloveServerListener for ExampleFoxgloveServerListener {
 async fn main() {
     let listener = Box::new(ExampleFoxgloveServerListener {});
     let server = FoxgloveServer::new(listener);
-    server.start().await;
+    server
+        .start("127.0.0.1", 8323)
+        .await
+        .expect("Failed to start");
 }
 
 // Define other structs and enums here

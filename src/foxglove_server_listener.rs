@@ -1,13 +1,14 @@
 use async_trait::async_trait;
 use std::collections::HashMap;
-use uuid::Uuid;
 
+use crate::CallId;
 use crate::Capability;
 use crate::ChannelId;
 use crate::ClientChannel;
 use crate::ClientChannelId;
 use crate::FoxgloveServer;
 use crate::Parameter;
+use crate::RequestId;
 use crate::ServiceId;
 use crate::SubscriptionId;
 
@@ -32,7 +33,7 @@ pub trait FoxgloveServerListener {
         &self,
         server: &FoxgloveServer,
         service_id: ServiceId,
-        call_id: Uuid,
+        call_id: CallId,
         encoding: String,
         payload: Vec<u8>,
     ) -> Vec<u8>;
@@ -40,13 +41,13 @@ pub trait FoxgloveServerListener {
         &self,
         server: &FoxgloveServer,
         param_names: Vec<String>,
-        request_id: Option<Uuid>,
+        request_id: Option<RequestId>,
     ) -> Vec<Parameter>;
     async fn on_set_parameters(
         &self,
         server: &FoxgloveServer,
         params: Vec<Parameter>,
-        request_id: Option<Uuid>,
+        request_id: Option<RequestId>,
     ) -> Vec<Parameter>;
     async fn on_parameters_subscribe(
         &self,
