@@ -32,28 +32,89 @@ use crate::SubscriptionId;
 use crate::Unadvertise;
 use crate::UnadvertiseServices;
 
-pub struct FoxgloveServer {
+/// Common data, everything inside here should be shared
+pub struct FoxgloveState {
     server_info: ServerInfo,
 
-    clients: Arc<Mutex<HashMap<ChannelId, ClientState>>>,
+    clients: HashMap<ChannelId, ClientState>,
 
-    next_channel_id: Arc<AtomicU32>,
-    channels: Arc<Mutex<HashMap<ChannelId, Channel>>>,
+    next_channel_id: u32,
+    channels: HashMap<ChannelId, Channel>,
 
-    next_service_id: Arc<AtomicU32>,
-    services: Arc<Mutex<HashMap<ServiceId, Service>>>,
+    next_service_id: u32,
+    services: HashMap<ServiceId, Service>,
 
-    listener: Box<dyn FoxgloveServerListener>,
+    listener: Box<dyn FoxgloveServerListener + Send>,
 }
 
-async fn handle_connection(stream: tokio::net::TcpStream) {
-    if let Ok(ws_stream) = tokio_tungstenite::accept_async(stream).await {
-        // Use ws_stream to send and receive WebSocket messages
-    }
+pub struct FoxgloveInterface {
+    state: Arc<Mutex<FoxgloveState>>,
+}
+
+pub struct FoxgloveServer {
+    state: Arc<Mutex<FoxgloveState>>,
+}
+
+async fn handle_connection(stream: tokio::net::TcpStream, state: Arc<Mutex<FoxgloveState>>) {
+    let stream = match tokio_tungstenite::accept_async(stream).await {
+        Err(err) => {
+            log::error!("Failed to upgrade to websocket, reason: {err}");
+            return;
+        }
+        Ok(stream) => stream,
+    };
+
+    //        client = ClientState(connection=connection)
+    //        self._clients += (client,)
+    //
+    //        try:
+    //            await self._send_server_info(connection)
+    //            await self._send_json(
+    //                connection,
+    //                {
+    //                    "op": "advertise",
+    //                    "channels": list(self._channels.values()),
+    //                },
+    //            )
+    //            if "services" in self.capabilities:
+    //                await self._send_json(
+    //                    connection,
+    //                    {
+    //                        "op": "advertiseServices",
+    //                        "services": list(self._services.values()),
+    //                    },
+    //                )
+    //            async for raw_message in connection:
+    //                await self._handle_raw_client_message(client, raw_message)
+    //
+    //        except ConnectionClosed as closed:
+    //            self._logger.info(
+    //                "Connection to %s closed: %s %r",
+    //                connection.remote_address,
+    //                closed.code,
+    //                closed.reason,
+    //            )
+    //
+    //        except Exception:
+    //            self._logger.exception(
+    //                "Error handling client connection %s", connection.remote_address
+    //            )
+    //            await connection.close(1011)  # Internal Error
+    //
+    //        finally:
+    //            potential_unsubscribes = client.subscriptions_by_channel.keys()
+    //            self._clients = tuple(c for c in self._clients if c != client)
+    //            if self._listener:
+    //                for chan_id in potential_unsubscribes:
+    //                    if not self._any_subscribed(chan_id):
+    //                        result = self._listener.on_unsubscribe(self, chan_id)
+    //                        if inspect.isawaitable(result):
+    //                            await result
+    //
 }
 
 impl FoxgloveServer {
-    pub fn new(listener: Box<dyn FoxgloveServerListener>) -> Self {
+    pub fn new(listener: Box<dyn FoxgloveServerListener + Send>) -> Self {
         let server_info = ServerInfo {
             op: "serverInfo".to_string(),
             session_id: None,
@@ -63,15 +124,17 @@ impl FoxgloveServer {
             metadata: listener.metadata(),
         };
 
-        FoxgloveServer {
+        let state = Arc::new(Mutex::new(FoxgloveState {
             server_info,
-            next_channel_id: Arc::new(AtomicU32::new(1)),
-            next_service_id: Arc::new(AtomicU32::new(1)),
-            clients: Arc::new(Mutex::new(HashMap::new())),
-            channels: Arc::new(Mutex::new(HashMap::new())),
-            services: Arc::new(Mutex::new(HashMap::new())),
+            next_channel_id: 1,
+            next_service_id: 1,
+            clients: HashMap::new(),
+            channels: HashMap::new(),
+            services: HashMap::new(),
             listener,
-        }
+        }));
+
+        FoxgloveServer { state }
     }
 
     pub async fn start(&self, host: &str, port: u16) -> Result<(), Box<dyn std::error::Error>> {
@@ -82,7 +145,8 @@ impl FoxgloveServer {
 
         // Accept incoming TCP connections and upgrade them to WebSocket
         while let Ok((stream, _)) = listener.accept().await {
-            tokio::spawn(handle_connection(stream));
+            let state = self.state.clone();
+            tokio::spawn(handle_connection(stream, state));
         }
 
         return Ok(());
@@ -90,18 +154,21 @@ impl FoxgloveServer {
 
     // Assuming you have an async function to send JSON messages to all connected clients
     async fn broadcast(&self, message: Vec<u8>) {
-        let clients = self.clients.lock().expect("lock");
-        for client in clients.values() {
+        let state = self.state.lock().expect("lock");
+        for client in state.clients.values() {
             let _ = client.sender.send(message.clone());
         }
     }
 
     pub async fn add_channel(&self, mut channel: Channel) -> ChannelId {
-        let mut channels = self.channels.lock().expect("lock");
-        let new_id = self.next_channel_id.fetch_add(1, Ordering::Relaxed);
-        channel.id = new_id;
-
-        channels.insert(new_id, channel.clone());
+        let new_id = {
+            let mut state = self.state.lock().expect("lock");
+            let new_id = state.next_channel_id;
+            state.next_channel_id += 1;
+            channel.id = new_id;
+            state.channels.insert(new_id, channel.clone());
+            new_id
+        };
 
         let msg = Advertise {
             op: "advertise".to_string(),
@@ -117,11 +184,13 @@ impl FoxgloveServer {
     }
 
     pub async fn remove_channel(&self, channel_id: ChannelId) -> Result<(), String> {
-        let mut channels = self.channels.lock().expect("lock");
+        {
+            let mut state = self.state.lock().expect("lock");
 
-        // Check if the channel exists before attempting to remove it
-        if channels.remove(&channel_id).is_none() {
-            return Err(format!("Channel with ID {} does not exist.", channel_id));
+            // Check if the channel exists before attempting to remove it
+            if state.channels.remove(&channel_id).is_none() {
+                return Err(format!("Channel with ID {} does not exist.", channel_id));
+            }
         }
 
         // Broadcast the new channel to all connected clients
@@ -137,11 +206,14 @@ impl FoxgloveServer {
     }
 
     pub async fn add_service(&self, mut service: Service) -> ServiceId {
-        let new_id = self.next_channel_id.fetch_add(1, Ordering::Relaxed);
-        service.id = new_id;
-        let mut services = self.services.lock().expect("lock");
-
-        services.insert(new_id, service.clone());
+        let new_id = {
+            let mut state = self.state.lock().expect("lock");
+            let new_id = state.next_channel_id;
+            state.next_channel_id += 1;
+            service.id = new_id;
+            state.services.insert(new_id, service.clone());
+            new_id
+        };
 
         let msg = AdvertiseServices {
             op: "advertiseServices".to_string(),
@@ -156,11 +228,13 @@ impl FoxgloveServer {
     }
 
     pub async fn remove_service(&self, service_id: ServiceId) -> Result<(), String> {
-        let mut services = self.services.lock().expect("lock");
+        {
+            let mut state = self.state.lock().expect("lock");
 
-        // Check if the channel exists before attempting to remove it
-        if services.remove(&service_id).is_none() {
-            return Err(format!("Service with ID {} does not exist.", service_id));
+            // Check if the channel exists before attempting to remove it
+            if state.services.remove(&service_id).is_none() {
+                return Err(format!("Service with ID {} does not exist.", service_id));
+            }
         }
 
         // Broadcast the new channel to all connected clients
@@ -176,8 +250,8 @@ impl FoxgloveServer {
     }
 
     pub async fn update_parameters(&self, parameters: Vec<Parameter>) {
-        let clients = self.clients.lock().expect("lock");
-        for client in clients.values() {
+        let state = self.state.lock().expect("lock");
+        for client in state.clients.values() {
             let to_send: Vec<Parameter> = parameters
                 .iter()
                 .filter(|p| client.subscribed_params.contains(&p.name))
@@ -195,8 +269,8 @@ impl FoxgloveServer {
     }
 
     pub async fn send_message(&self, chan_id: ChannelId, timestamp_nanos: u64, payload: Vec<u8>) {
-        let clients = self.clients.lock().expect("lock");
-        for client in clients.values() {
+        let state = self.state.lock().expect("lock");
+        for client in state.clients.values() {
             if let Some(&sub_id) = client.subscriptions_by_channel.get(&chan_id) {
                 let sub_id = sub_id as u32;
                 let timestamp_nanos = timestamp_nanos as u64;
@@ -212,13 +286,13 @@ impl FoxgloveServer {
 
     /// Reset session Id and send new server info to clients.
     pub async fn reset_session_id(&mut self, new_session_id: Option<String>) {
-        self.server_info.session_id = new_session_id;
+        let mut state = self.state.lock().expect("lock");
+        state.server_info.session_id = new_session_id;
 
-        let clients = self.clients.lock().expect("lock");
-        for client in clients.values() {
+        for client in state.clients.values() {
             let _ = client
                 .sender
-                .send(serde_json::to_vec(&self.server_info).expect("encoding server_info"));
+                .send(serde_json::to_vec(&state.server_info).expect("encoding server_info"));
         }
     }
 
