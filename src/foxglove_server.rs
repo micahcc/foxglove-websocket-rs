@@ -5,25 +5,11 @@ use futures_util::SinkExt;
 use futures_util::StreamExt;
 use tokio_tungstenite::tungstenite::Message;
 
-//use futures::stream::SplitSink;
-//use futures::{SinkExt, StreamExt};
-//use tokio::net::TcpListener;
-//use tokio::sync::mpsc;
-//use tokio_stream::wrappers::TcpListenerStream;
-//use tokio_tungstenite::{accept_async, tungstenite::protocol::Message};
-//use warp::Filter;
-//
-//type ChannelId = u32;
-//type SubscriptionId = u32;
-//type ServiceId = u32;
-//type ClientChannelId = u32;
-
 use crate::messages;
 use crate::Advertise;
 use crate::Channel;
 use crate::ChannelId;
 use crate::ClientState;
-use crate::FoxgloveInterface;
 use crate::FoxgloveServerListener;
 use crate::FoxgloveState;
 use crate::Parameter;
@@ -35,9 +21,10 @@ use crate::SubscriptionId;
 use crate::Unadvertise;
 use crate::UnadvertiseServices;
 
+#[derive(Clone)]
 pub struct FoxgloveServer {
     state: Arc<Mutex<FoxgloveState>>,
-    listener: Arc<tokio::sync::Mutex<Box<dyn FoxgloveServerListener + Send>>>,
+    listener: Option<Arc<tokio::sync::Mutex<Box<dyn FoxgloveServerListener + Send>>>>,
 }
 
 fn make_status(level: messages::StatusLevel, message: String) -> Message {
@@ -54,7 +41,7 @@ fn make_status(level: messages::StatusLevel, message: String) -> Message {
 async fn handle_subscribe(
     client_id: u32,
     state: Arc<Mutex<FoxgloveState>>,
-    listener: Arc<tokio::sync::Mutex<Box<dyn FoxgloveServerListener + Send>>>,
+    listener: Option<Arc<tokio::sync::Mutex<Box<dyn FoxgloveServerListener + Send>>>>,
     msg: messages::Subscribe,
 ) {
     let events = {
@@ -123,17 +110,19 @@ async fn handle_subscribe(
     };
 
     // hold listener lock separately from state lock
-    let interface = FoxgloveInterface { state };
-    let listener = listener.lock().await;
-    for chan_id in events {
-        listener.on_subscribe(interface.clone(), chan_id).await;
+    let interface = FoxgloveServer::new_from_state(state);
+    if let Some(listener) = listener {
+        let listener = listener.lock().await;
+        for chan_id in events {
+            listener.on_subscribe(interface.clone(), chan_id).await;
+        }
     }
 }
 
 async fn handle_unsubscribe(
     client_id: u32,
     state: Arc<Mutex<FoxgloveState>>,
-    listener: Arc<tokio::sync::Mutex<Box<dyn FoxgloveServerListener + Send>>>,
+    listener: Option<Arc<tokio::sync::Mutex<Box<dyn FoxgloveServerListener + Send>>>>,
     msg: messages::Unsubscribe,
 ) {
     let events = {
@@ -187,17 +176,19 @@ async fn handle_unsubscribe(
     };
 
     // hold listener lock separately from state lock
-    let listener = listener.lock().await;
-    let interface = FoxgloveInterface { state };
-    for chan_id in events {
-        listener.on_unsubscribe(interface.clone(), chan_id).await;
+    let interface = FoxgloveServer::new_from_state(state);
+    if let Some(listener) = listener {
+        let listener = listener.lock().await;
+        for chan_id in events {
+            listener.on_unsubscribe(interface.clone(), chan_id).await;
+        }
     }
 }
 
 async fn handle_advertise(
     client_id: u32,
     state: Arc<Mutex<FoxgloveState>>,
-    listener: Arc<tokio::sync::Mutex<Box<dyn FoxgloveServerListener + Send>>>,
+    listener: Option<Arc<tokio::sync::Mutex<Box<dyn FoxgloveServerListener + Send>>>>,
     message: messages::ClientAdvertise,
 ) {
     let events = {
@@ -234,17 +225,19 @@ async fn handle_advertise(
     };
 
     // hold listener lock separately from state lock
-    let listener = listener.lock().await;
-    let interface = FoxgloveInterface { state };
-    for c in events {
-        listener.on_client_advertise(interface.clone(), c).await;
+    let interface = FoxgloveServer::new_from_state(state);
+    if let Some(listener) = listener {
+        let listener = listener.lock().await;
+        for c in events {
+            listener.on_client_advertise(interface.clone(), c).await;
+        }
     }
 }
 
 async fn handle_unadvertise(
     client_id: u32,
     state: Arc<Mutex<FoxgloveState>>,
-    listener: Arc<tokio::sync::Mutex<Box<dyn FoxgloveServerListener + Send>>>,
+    listener: Option<Arc<tokio::sync::Mutex<Box<dyn FoxgloveServerListener + Send>>>>,
     msg: messages::ClientUnadvertise,
 ) {
     let events = {
@@ -279,28 +272,32 @@ async fn handle_unadvertise(
     };
 
     // hold listener lock separately from state lock
-    let listener = listener.lock().await;
-    let interface = FoxgloveInterface { state };
-    for cid in events {
-        listener.on_client_unadvertise(interface.clone(), cid).await;
+    let interface = FoxgloveServer::new_from_state(state);
+    if let Some(listener) = listener {
+        let listener = listener.lock().await;
+        for cid in events {
+            listener.on_client_unadvertise(interface.clone(), cid).await;
+        }
     }
 }
 
 async fn handle_get_parameters(
     client_id: u32,
     state: Arc<Mutex<FoxgloveState>>,
-    listener: Arc<tokio::sync::Mutex<Box<dyn FoxgloveServerListener + Send>>>,
+    listener: Option<Arc<tokio::sync::Mutex<Box<dyn FoxgloveServerListener + Send>>>>,
     msg: messages::GetParameters,
 ) {
     let request_id = msg.id.clone();
-    let interface = FoxgloveInterface {
-        state: state.clone(),
-    };
+    let interface = FoxgloveServer::new_from_state(state.clone());
     let params = {
-        let listener = listener.lock().await;
-        listener
-            .on_get_parameters(interface, msg.parameter_names, msg.id)
-            .await
+        if let Some(listener) = listener {
+            let listener = listener.lock().await;
+            listener
+                .on_get_parameters(interface, msg.parameter_names, msg.id)
+                .await
+        } else {
+            vec![]
+        }
     };
 
     {
@@ -325,18 +322,20 @@ async fn handle_get_parameters(
 async fn handle_set_parameters(
     client_id: u32,
     state: Arc<Mutex<FoxgloveState>>,
-    listener: Arc<tokio::sync::Mutex<Box<dyn FoxgloveServerListener + Send>>>,
+    listener: Option<Arc<tokio::sync::Mutex<Box<dyn FoxgloveServerListener + Send>>>>,
     msg: messages::SetParameters,
 ) {
     let request_id = msg.id.clone();
-    let interface = FoxgloveInterface {
-        state: state.clone(),
-    };
+    let interface = FoxgloveServer::new_from_state(state.clone());
     let params = {
-        let listener = listener.lock().await;
-        listener
-            .on_set_parameters(interface, msg.parameters, msg.id)
-            .await
+        if let Some(listener) = listener {
+            let listener = listener.lock().await;
+            listener
+                .on_set_parameters(interface, msg.parameters, msg.id)
+                .await
+        } else {
+            vec![]
+        }
     };
 
     {
@@ -361,7 +360,7 @@ async fn handle_set_parameters(
 async fn handle_subscribe_parameter_updates(
     client_id: u32,
     state: Arc<Mutex<FoxgloveState>>,
-    listener: Arc<tokio::sync::Mutex<Box<dyn FoxgloveServerListener + Send>>>,
+    listener: Option<Arc<tokio::sync::Mutex<Box<dyn FoxgloveServerListener + Send>>>>,
     msg: messages::SubscribeParameterUpdate,
 ) {
     let new_param_subscriptions = {
@@ -380,17 +379,19 @@ async fn handle_subscribe_parameter_updates(
     };
 
     // hold listener lock separately from state lock
-    let listener = listener.lock().await;
-    let interface = FoxgloveInterface { state };
-    listener
-        .on_parameters_subscribe(interface, new_param_subscriptions, true)
-        .await;
+    let interface = FoxgloveServer::new_from_state(state.clone());
+    if let Some(listener) = listener {
+        let listener = listener.lock().await;
+        listener
+            .on_parameters_subscribe(interface, new_param_subscriptions, true)
+            .await;
+    }
 }
 
 async fn handle_unsubscribe_parameter_updates(
     client_id: u32,
     state: Arc<Mutex<FoxgloveState>>,
-    listener: Arc<tokio::sync::Mutex<Box<dyn FoxgloveServerListener + Send>>>,
+    listener: Option<Arc<tokio::sync::Mutex<Box<dyn FoxgloveServerListener + Send>>>>,
     msg: messages::UnsubscribeParameterUpdate,
 ) {
     let removed = {
@@ -409,17 +410,19 @@ async fn handle_unsubscribe_parameter_updates(
     };
 
     // hold listener lock separately from state lock
-    let listener = listener.lock().await;
-    let interface = FoxgloveInterface { state };
-    listener
-        .on_parameters_subscribe(interface, removed, false)
-        .await;
+    let interface = FoxgloveServer::new_from_state(state.clone());
+    if let Some(listener) = listener {
+        let listener = listener.lock().await;
+        listener
+            .on_parameters_subscribe(interface, removed, false)
+            .await;
+    }
 }
 
 async fn handle_text_input(
     client_id: u32,
     state: Arc<Mutex<FoxgloveState>>,
-    listener: Arc<tokio::sync::Mutex<Box<dyn FoxgloveServerListener + Send>>>,
+    listener: Option<Arc<tokio::sync::Mutex<Box<dyn FoxgloveServerListener + Send>>>>,
     msg: String,
 ) {
     let unparsed = match serde_json::from_str(&msg) {
@@ -516,7 +519,7 @@ async fn handle_text_input(
 async fn handle_binary_input(
     client_id: u32,
     state: Arc<Mutex<FoxgloveState>>,
-    listener: Arc<tokio::sync::Mutex<Box<dyn FoxgloveServerListener + Send>>>,
+    listener: Option<Arc<tokio::sync::Mutex<Box<dyn FoxgloveServerListener + Send>>>>,
     msg: Vec<u8>,
 ) {
     if msg.len() < 5 {
@@ -565,13 +568,14 @@ async fn handle_binary_input(
         }
 
         // make sure this lock doens't overlap with state lock
-        let listener = listener.lock().await;
-        let interface = FoxgloveInterface {
-            state: state.clone(),
-        };
-        listener
-            .on_client_message(interface, channel_id, payload.to_vec())
-            .await;
+        let interface = FoxgloveServer::new_from_state(state.clone());
+
+        if let Some(listener) = listener {
+            let listener = listener.lock().await;
+            listener
+                .on_client_message(interface, channel_id, payload.to_vec())
+                .await;
+        }
     } else if msg[0] == messages::ClientBinaryOpcode::ServiceCallRequest as u8 {
         let (sender, service_id, call_id, encoding, payload) = {
             let mut state = state.lock().expect("lock");
@@ -640,10 +644,6 @@ async fn handle_binary_input(
         };
 
         // make sure this lock doens't overlap with state lock
-        let listener = listener.lock().await;
-        let interface = FoxgloveInterface {
-            state: state.clone(),
-        };
 
         // pack back into binary
         let mut response_bytes = vec![messages::BinaryOpcode::ServiceCallResponse as u8];
@@ -654,14 +654,23 @@ async fn handle_binary_input(
         response_bytes.extend_from_slice(&(encoding_bytes.len() as u32).to_le_bytes());
         response_bytes.extend_from_slice(&encoding_bytes);
 
-        let resp = listener
-            .on_service_request(interface, service_id, call_id, encoding, payload)
-            .await;
+        let interface = FoxgloveServer::new_from_state(state.clone());
+        if let Some(listener) = listener {
+            let listener = listener.lock().await;
+            let resp = listener
+                .on_service_request(interface, service_id, call_id, encoding, payload)
+                .await;
 
-        // finally append response
-        response_bytes.extend_from_slice(&resp);
-
-        let _ = sender.send(Message::Binary(response_bytes));
+            // finally append response
+            response_bytes.extend_from_slice(&resp);
+            let _ = sender.send(Message::Binary(response_bytes));
+        } else {
+            log::error!("No implementation of {service_id}");
+            let _ = sender.send(make_status(
+                messages::StatusLevel::Error,
+                format!("No implementation of {service_id}"),
+            ));
+        }
     } else {
         let mut state = state.lock().expect("lock");
         let client = state
@@ -684,7 +693,7 @@ async fn handle_binary_input(
 
 async fn handle_connection(
     stream: tokio::net::TcpStream,
-    listener: Arc<tokio::sync::Mutex<Box<dyn FoxgloveServerListener + Send>>>,
+    listener: Option<Arc<tokio::sync::Mutex<Box<dyn FoxgloveServerListener + Send>>>>,
     state: Arc<Mutex<FoxgloveState>>,
 ) {
     let remote = match stream.peer_addr() {
@@ -810,27 +819,51 @@ async fn handle_connection(
         to_unsubscribe
     };
 
-    let listener = listener.lock().await;
-    let interface = FoxgloveInterface {
-        state: state.clone(),
-    };
-    for channel_id in to_unsubscribe {
-        listener.on_unsubscribe(interface.clone(), channel_id).await;
+    let interface = FoxgloveServer::new_from_state(state.clone());
+    if let Some(listener) = listener {
+        let listener = listener.lock().await;
+        for channel_id in to_unsubscribe {
+            listener.on_unsubscribe(interface.clone(), channel_id).await;
+        }
     }
 }
 
 impl FoxgloveServer {
-    pub fn new(listener: Box<dyn FoxgloveServerListener + Send>) -> Self {
+    fn new_from_state(state: Arc<Mutex<FoxgloveState>>) -> FoxgloveServer {
+        return FoxgloveServer {
+            state,
+            listener: None,
+        };
+    }
+
+    pub fn new_with_listener(
+        name: String,
+        listener: Box<dyn FoxgloveServerListener + Send>,
+    ) -> Self {
         let server_info = ServerInfo {
             op: "serverInfo".to_string(),
             session_id: None,
-            name: listener.name(),
-            capabilities: listener.capabilities(),
-            supported_encodings: listener.supported_encodings(),
-            metadata: listener.metadata(),
+            name,
+            capabilities: vec![
+                messages::Capability::ClientPublish,
+                messages::Capability::Parameters,
+                messages::Capability::ParametersSubscribe,
+                messages::Capability::Services,
+                // time
+                // connectionGraph
+                // assets
+            ],
+            supported_encodings: vec![
+                messages::Encoding::Json,
+                messages::Encoding::Protobuf,
+                messages::Encoding::Ros1,
+                messages::Encoding::Ros2,
+                messages::Encoding::Cdr,
+            ],
+            metadata: Default::default(),
         };
 
-        let listener = Arc::new(tokio::sync::Mutex::new(listener));
+        let listener = Some(Arc::new(tokio::sync::Mutex::new(listener)));
         let state = Arc::new(Mutex::new(FoxgloveState {
             server_info,
             next_channel_id: 1,
@@ -841,7 +874,47 @@ impl FoxgloveServer {
             services: HashMap::new(),
         }));
 
-        FoxgloveServer { state, listener }
+        return FoxgloveServer { state, listener };
+    }
+
+    pub fn new(name: String) -> Self {
+        let server_info = ServerInfo {
+            op: "serverInfo".to_string(),
+            session_id: None,
+            name,
+            capabilities: vec![
+                messages::Capability::ClientPublish,
+                messages::Capability::Parameters,
+                messages::Capability::ParametersSubscribe,
+                messages::Capability::Services,
+                // time
+                // connectionGraph
+                // assets
+            ],
+            supported_encodings: vec![
+                messages::Encoding::Json,
+                messages::Encoding::Protobuf,
+                messages::Encoding::Ros1,
+                messages::Encoding::Ros2,
+                messages::Encoding::Cdr,
+            ],
+            metadata: Default::default(),
+        };
+
+        let state = Arc::new(Mutex::new(FoxgloveState {
+            server_info,
+            next_channel_id: 1,
+            next_service_id: 1,
+            next_client_id: 1,
+            clients: HashMap::new(),
+            channels: HashMap::new(),
+            services: HashMap::new(),
+        }));
+
+        FoxgloveServer {
+            state,
+            listener: None,
+        }
     }
 
     pub async fn start(&self, host: &str, port: u16) -> Result<(), Box<dyn std::error::Error>> {

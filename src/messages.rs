@@ -30,6 +30,16 @@ pub enum Capability {
     Assets,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum Encoding {
+    Json,
+    Protobuf,
+    Ros1,
+    Ros2,
+    Cdr,
+}
+
 // Server Info
 #[derive(Default, Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -37,7 +47,7 @@ pub struct ServerInfo {
     pub op: String,
     pub name: String,
     pub capabilities: Vec<Capability>,
-    pub supported_encodings: Vec<String>,
+    pub supported_encodings: Vec<Encoding>,
     pub metadata: HashMap<String, String>,
     pub session_id: Option<String>,
 }

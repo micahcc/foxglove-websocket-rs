@@ -16,7 +16,6 @@ pub type ClientId = u32;
 
 pub use client_channel::ClientChannel;
 pub use client_state::ClientState;
-pub use foxglove_interface::FoxgloveInterface;
 pub use foxglove_server::FoxgloveServer;
 pub use foxglove_server_listener::FoxgloveServerListener;
 pub use foxglove_state::FoxgloveState;
