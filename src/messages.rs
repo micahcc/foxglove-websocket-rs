@@ -1,10 +1,22 @@
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-use serde::{Deserialize, Serialize};
-//use tokio_tungstenite::{WebSocketStream, Message, WebSocketError};
-//use tokio::prelude::*;
+use crate::RequestId;
 
-// Define structs for each message type
+#[derive(Serialize, Deserialize, PartialEq, Debug)]
+#[repr(u8)]
+pub enum BinaryOpcode {
+    MessageData = 1,
+    Time = 2,
+    ServiceCallResponse = 3,
+}
+
+#[derive(Serialize, Deserialize, PartialEq, Debug)]
+#[repr(u8)]
+pub enum ClientBinaryOpcode {
+    MessageData = 1,
+    ServiceCallRequest = 2,
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -30,9 +42,26 @@ pub struct ServerInfo {
     pub session_id: Option<String>,
 }
 
+#[derive(Serialize, Deserialize, PartialEq, Debug)]
+#[repr(u8)]
+pub enum StatusLevel {
+    Info = 0,
+    Warning = 1,
+    Error = 2,
+}
+
 // Status
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Status {
+    pub op: String,
+    pub level: u8,
+    pub message: String,
+    pub id: Option<String>,
+}
+
+// Status
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ClientChannel {
     pub op: String,
     pub level: u8,
     pub message: String,
@@ -73,8 +102,9 @@ pub struct Unadvertise {
 // Parameter Values
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ParameterValues {
-    pub op: String,
+    pub op: String, // parameterValues
     pub parameters: Vec<Parameter>,
+    pub id: Option<u32>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -151,60 +181,60 @@ pub struct Subscribe {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-struct Subscription {
-    id: u32,
-    channel_id: u32,
+pub struct Subscription {
+    pub id: u32,
+    pub channel_id: u32,
 }
 
 // Unsubscribe
 #[derive(Debug, Clone, Serialize, Deserialize)]
-struct Unsubscribe {
-    op: String,
-    subscription_ids: Vec<u32>,
+pub struct Unsubscribe {
+    pub op: String,
+    pub subscription_ids: Vec<u32>,
 }
 
 // Client Advertise
 #[derive(Debug, Clone, Serialize, Deserialize)]
-struct ClientAdvertise {
-    op: String,
-    channels: Vec<Channel>,
+pub struct ClientAdvertise {
+    pub op: String,
+    pub channels: Vec<Channel>,
 }
 
 // Client Unadvertise
 #[derive(Debug, Clone, Serialize, Deserialize)]
-struct ClientUnadvertise {
-    op: String,
-    channel_ids: Vec<u32>,
+pub struct ClientUnadvertise {
+    pub op: String,
+    pub channel_ids: Vec<RequestId>,
 }
 
 // Get Parameters
 #[derive(Debug, Clone, Serialize, Deserialize)]
-struct GetParameters {
-    op: String,
-    parameter_names: Vec<String>,
-    id: Option<String>,
+pub struct GetParameters {
+    pub op: String,
+    pub parameter_names: Vec<String>,
+    pub id: Option<u32>,
 }
 
 // Set Parameters
 #[derive(Debug, Clone, Serialize, Deserialize)]
-struct SetParameters {
-    op: String,
-    parameters: Vec<Parameter>,
-    id: Option<String>,
+pub struct SetParameters {
+    pub op: String,
+    pub parameters: Vec<Parameter>,
+    pub id: Option<RequestId>,
 }
 
 // Subscribe Parameter Update
 #[derive(Debug, Clone, Serialize, Deserialize)]
-struct SubscribeParameterUpdate {
-    op: String,
-    parameter_names: Vec<String>,
+pub struct SubscribeParameterUpdate {
+    pub op: String,
+    pub parameter_names: Vec<String>,
 }
 
 // Unsubscribe Parameter Update
 #[derive(Debug, Clone, Serialize, Deserialize)]
-struct UnsubscribeParameterUpdate {
-    op: String,
-    parameter_names: Vec<String>,
+pub struct UnsubscribeParameterUpdate {
+    pub op: String,
+    pub parameter_names: Vec<String>,
 }
 
 // Subscribe Connection Graph

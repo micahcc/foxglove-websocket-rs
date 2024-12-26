@@ -4,9 +4,10 @@ use async_trait::async_trait;
 
 use foxglove_websocket_rs::CallId;
 use foxglove_websocket_rs::Capability;
+use foxglove_websocket_rs::Channel;
 use foxglove_websocket_rs::ChannelId;
-use foxglove_websocket_rs::ClientChannel;
 use foxglove_websocket_rs::ClientChannelId;
+use foxglove_websocket_rs::FoxgloveInterface;
 use foxglove_websocket_rs::FoxgloveServer;
 use foxglove_websocket_rs::FoxgloveServerListener;
 use foxglove_websocket_rs::Parameter;
@@ -34,25 +35,25 @@ impl FoxgloveServerListener for ExampleFoxgloveServerListener {
         return HashMap::new();
     }
 
-    async fn on_subscribe(&self, server: &FoxgloveServer, channel_id: ChannelId) {
+    async fn on_subscribe(&self, server: FoxgloveInterface, channel_id: ChannelId) {
         todo!();
     }
 
-    async fn on_unsubscribe(&self, server: &FoxgloveServer, channel_id: ChannelId) {
+    async fn on_unsubscribe(&self, server: FoxgloveInterface, channel_id: ChannelId) {
         todo!();
     }
 
-    async fn on_client_advertise(&self, server: &FoxgloveServer, channel: ClientChannel) {
+    async fn on_client_advertise(&self, server: FoxgloveInterface, channel: Channel) {
         todo!();
     }
 
-    async fn on_client_unadvertise(&self, server: &FoxgloveServer, channel_id: ClientChannelId) {
+    async fn on_client_unadvertise(&self, server: FoxgloveInterface, channel_id: ClientChannelId) {
         todo!();
     }
 
     async fn on_client_message(
         &self,
-        server: &FoxgloveServer,
+        server: FoxgloveInterface,
         channel_id: ClientChannelId,
         payload: Vec<u8>,
     ) {
@@ -61,7 +62,7 @@ impl FoxgloveServerListener for ExampleFoxgloveServerListener {
 
     async fn on_service_request(
         &self,
-        server: &FoxgloveServer,
+        server: FoxgloveInterface,
         service_id: ServiceId,
         call_id: CallId,
         encoding: String,
@@ -72,7 +73,7 @@ impl FoxgloveServerListener for ExampleFoxgloveServerListener {
 
     async fn on_get_parameters(
         &self,
-        server: &FoxgloveServer,
+        server: FoxgloveInterface,
         param_names: Vec<String>,
         request_id: Option<RequestId>,
     ) -> Vec<Parameter> {
@@ -81,7 +82,7 @@ impl FoxgloveServerListener for ExampleFoxgloveServerListener {
 
     async fn on_set_parameters(
         &self,
-        server: &FoxgloveServer,
+        server: FoxgloveInterface,
         params: Vec<Parameter>,
         request_id: Option<RequestId>,
     ) -> Vec<Parameter> {
@@ -90,7 +91,7 @@ impl FoxgloveServerListener for ExampleFoxgloveServerListener {
 
     async fn on_parameters_subscribe(
         &self,
-        server: &FoxgloveServer,
+        server: FoxgloveInterface,
         param_name: Vec<String>,
         subscribe: bool,
     ) {
