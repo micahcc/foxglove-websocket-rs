@@ -1,9 +1,6 @@
-use std::collections::HashMap;
-
 use async_trait::async_trait;
 
 use foxglove_websocket_rs::CallId;
-use foxglove_websocket_rs::Capability;
 use foxglove_websocket_rs::Channel;
 use foxglove_websocket_rs::ChannelId;
 use foxglove_websocket_rs::ClientChannelId;
@@ -11,72 +8,63 @@ use foxglove_websocket_rs::FoxgloveServer;
 use foxglove_websocket_rs::FoxgloveServerListener;
 use foxglove_websocket_rs::Parameter;
 use foxglove_websocket_rs::RequestId;
-use foxglove_websocket_rs::ServerInfo;
 use foxglove_websocket_rs::ServiceId;
 
 struct ExampleFoxgloveServerListener {}
 
 #[async_trait]
 impl FoxgloveServerListener for ExampleFoxgloveServerListener {
-    async fn on_subscribe(&self, server: FoxgloveServer, channel_id: ChannelId) {
-        todo!();
-    }
+    async fn on_subscribe(&self, _server: FoxgloveServer, _channel_id: ChannelId) {}
 
-    async fn on_unsubscribe(&self, server: FoxgloveServer, channel_id: ChannelId) {
-        todo!();
-    }
+    async fn on_unsubscribe(&self, _server: FoxgloveServer, _channel_id: ChannelId) {}
 
-    async fn on_client_advertise(&self, server: FoxgloveServer, channel: Channel) {
-        todo!();
-    }
+    async fn on_client_advertise(&self, _server: FoxgloveServer, _channel: Channel) {}
 
-    async fn on_client_unadvertise(&self, server: FoxgloveServer, channel_id: ClientChannelId) {
-        todo!();
-    }
+    async fn on_client_unadvertise(&self, _server: FoxgloveServer, _channel_id: ClientChannelId) {}
 
     async fn on_client_message(
         &self,
-        server: FoxgloveServer,
-        channel_id: ClientChannelId,
-        payload: Vec<u8>,
+        _server: FoxgloveServer,
+        _channel_id: ClientChannelId,
+        _payload: Vec<u8>,
     ) {
         todo!();
     }
 
     async fn on_service_request(
         &self,
-        server: FoxgloveServer,
-        service_id: ServiceId,
-        call_id: CallId,
-        encoding: String,
-        payload: Vec<u8>,
+        _server: FoxgloveServer,
+        _service_id: ServiceId,
+        _call_id: CallId,
+        _encoding: String,
+        _payload: Vec<u8>,
     ) -> Vec<u8> {
         todo!();
     }
 
     async fn on_get_parameters(
         &self,
-        server: FoxgloveServer,
-        param_names: Vec<String>,
-        request_id: Option<RequestId>,
+        _server: FoxgloveServer,
+        _param_names: Vec<String>,
+        _request_id: Option<RequestId>,
     ) -> Vec<Parameter> {
         todo!();
     }
 
     async fn on_set_parameters(
         &self,
-        server: FoxgloveServer,
-        params: Vec<Parameter>,
-        request_id: Option<RequestId>,
+        _server: FoxgloveServer,
+        _params: Vec<Parameter>,
+        _request_id: Option<RequestId>,
     ) -> Vec<Parameter> {
         todo!();
     }
 
     async fn on_parameters_subscribe(
         &self,
-        server: FoxgloveServer,
-        param_name: Vec<String>,
-        subscribe: bool,
+        _server: FoxgloveServer,
+        _param_name: Vec<String>,
+        _subscribe: bool,
     ) {
         todo!();
     }

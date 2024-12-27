@@ -456,7 +456,7 @@ async fn handle_text_input(
         },
         "unsubscribe" => match serde_json::from_str(&msg) {
             Ok(parsed) => {
-                handle_unsubscribe(client_id, state, listener, parsed);
+                handle_unsubscribe(client_id, state, listener, parsed).await;
             }
             Err(err) => {
                 log::error!("Failed to parse unsubscribe request, err: {err}");
@@ -464,7 +464,7 @@ async fn handle_text_input(
         },
         "advertise" => match serde_json::from_str(&msg) {
             Ok(parsed) => {
-                handle_advertise(client_id, state, listener, parsed);
+                handle_advertise(client_id, state, listener, parsed).await;
             }
             Err(err) => {
                 log::error!("Failed to parse advertise request, err: {err}");
@@ -472,7 +472,7 @@ async fn handle_text_input(
         },
         "unadvertise" => match serde_json::from_str(&msg) {
             Ok(parsed) => {
-                handle_unadvertise(client_id, state, listener, parsed);
+                handle_unadvertise(client_id, state, listener, parsed).await;
             }
             Err(err) => {
                 log::error!("Failed to parse unadvertise request, err: {err}");
@@ -480,7 +480,7 @@ async fn handle_text_input(
         },
         "getParameters" => match serde_json::from_str(&msg) {
             Ok(parsed) => {
-                handle_get_parameters(client_id, state, listener, parsed);
+                handle_get_parameters(client_id, state, listener, parsed).await;
             }
             Err(err) => {
                 log::error!("Failed to parse getParameters request, err: {err}");
@@ -488,7 +488,7 @@ async fn handle_text_input(
         },
         "setParameters" => match serde_json::from_str(&msg) {
             Ok(parsed) => {
-                handle_set_parameters(client_id, state, listener, parsed);
+                handle_set_parameters(client_id, state, listener, parsed).await;
             }
             Err(err) => {
                 log::error!("Failed to parse getParameters request, err: {err}");
@@ -496,7 +496,7 @@ async fn handle_text_input(
         },
         "subscribeParameterUpdates" => match serde_json::from_str(&msg) {
             Ok(parsed) => {
-                handle_subscribe_parameter_updates(client_id, state, listener, parsed);
+                handle_subscribe_parameter_updates(client_id, state, listener, parsed).await;
             }
             Err(err) => {
                 log::error!("Failed to parse getParameters request, err: {err}");
@@ -504,7 +504,7 @@ async fn handle_text_input(
         },
         "unsubscribeParameterUpdates" => match serde_json::from_str(&msg) {
             Ok(parsed) => {
-                handle_unsubscribe_parameter_updates(client_id, state, listener, parsed);
+                handle_unsubscribe_parameter_updates(client_id, state, listener, parsed).await;
             }
             Err(err) => {
                 log::error!("Failed to parse getParameters request, err: {err}");
@@ -757,7 +757,7 @@ async fn handle_connection(
                 if let Some(status) = from_client {
                     match status {
                         Ok(Message::Ping(_)) => {
-                            conn_out.send(Message::Pong(Default::default())).await;
+                            let _ = conn_out.send(Message::Pong(Default::default())).await;
                         }
                         Ok(Message::Pong(_)) => { }
                         Ok(Message::Close(_)) => {
