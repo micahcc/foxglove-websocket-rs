@@ -112,7 +112,7 @@ async fn handle_subscribe(
     // hold listener lock separately from state lock
     let interface = FoxgloveServer::new_from_state(state);
     if let Some(listener) = listener {
-        let listener = listener.lock().await;
+        let mut listener = listener.lock().await;
         for chan_id in events {
             listener.on_subscribe(interface.clone(), chan_id).await;
         }
@@ -178,7 +178,7 @@ async fn handle_unsubscribe(
     // hold listener lock separately from state lock
     let interface = FoxgloveServer::new_from_state(state);
     if let Some(listener) = listener {
-        let listener = listener.lock().await;
+        let mut listener = listener.lock().await;
         for chan_id in events {
             listener.on_unsubscribe(interface.clone(), chan_id).await;
         }
@@ -227,7 +227,7 @@ async fn handle_advertise(
     // hold listener lock separately from state lock
     let interface = FoxgloveServer::new_from_state(state);
     if let Some(listener) = listener {
-        let listener = listener.lock().await;
+        let mut listener = listener.lock().await;
         for c in events {
             listener.on_client_advertise(interface.clone(), c).await;
         }
@@ -274,7 +274,7 @@ async fn handle_unadvertise(
     // hold listener lock separately from state lock
     let interface = FoxgloveServer::new_from_state(state);
     if let Some(listener) = listener {
-        let listener = listener.lock().await;
+        let mut listener = listener.lock().await;
         for cid in events {
             listener.on_client_unadvertise(interface.clone(), cid).await;
         }
@@ -291,7 +291,7 @@ async fn handle_get_parameters(
     let interface = FoxgloveServer::new_from_state(state.clone());
     let params = {
         if let Some(listener) = listener {
-            let listener = listener.lock().await;
+            let mut listener = listener.lock().await;
             listener
                 .on_get_parameters(interface, msg.parameter_names, msg.id)
                 .await
@@ -329,7 +329,7 @@ async fn handle_set_parameters(
     let interface = FoxgloveServer::new_from_state(state.clone());
     let params = {
         if let Some(listener) = listener {
-            let listener = listener.lock().await;
+            let mut listener = listener.lock().await;
             listener
                 .on_set_parameters(interface, msg.parameters, msg.id)
                 .await
@@ -381,7 +381,7 @@ async fn handle_subscribe_parameter_updates(
     // hold listener lock separately from state lock
     let interface = FoxgloveServer::new_from_state(state.clone());
     if let Some(listener) = listener {
-        let listener = listener.lock().await;
+        let mut listener = listener.lock().await;
         listener
             .on_parameters_subscribe(interface, new_param_subscriptions, true)
             .await;
@@ -412,7 +412,7 @@ async fn handle_unsubscribe_parameter_updates(
     // hold listener lock separately from state lock
     let interface = FoxgloveServer::new_from_state(state.clone());
     if let Some(listener) = listener {
-        let listener = listener.lock().await;
+        let mut listener = listener.lock().await;
         listener
             .on_parameters_subscribe(interface, removed, false)
             .await;
@@ -571,7 +571,7 @@ async fn handle_binary_input(
         let interface = FoxgloveServer::new_from_state(state.clone());
 
         if let Some(listener) = listener {
-            let listener = listener.lock().await;
+            let mut listener = listener.lock().await;
             listener
                 .on_client_message(interface, channel_id, payload.to_vec())
                 .await;
@@ -656,7 +656,7 @@ async fn handle_binary_input(
 
         let interface = FoxgloveServer::new_from_state(state.clone());
         if let Some(listener) = listener {
-            let listener = listener.lock().await;
+            let mut listener = listener.lock().await;
             let resp = listener
                 .on_service_request(interface, service_id, call_id, encoding, payload)
                 .await;
@@ -821,7 +821,7 @@ async fn handle_connection(
 
     let interface = FoxgloveServer::new_from_state(state.clone());
     if let Some(listener) = listener {
-        let listener = listener.lock().await;
+        let mut listener = listener.lock().await;
         for channel_id in to_unsubscribe {
             listener.on_unsubscribe(interface.clone(), channel_id).await;
         }
