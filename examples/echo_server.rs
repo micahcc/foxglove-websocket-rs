@@ -11,7 +11,6 @@ use foxglove_websocket_rs::ClientChannelId;
 use foxglove_websocket_rs::FoxgloveServer;
 use foxglove_websocket_rs::FoxgloveServerListener;
 use foxglove_websocket_rs::Parameter;
-use foxglove_websocket_rs::RequestId;
 use foxglove_websocket_rs::ServiceId;
 
 struct ExampleFoxgloveServerListener {
@@ -56,7 +55,7 @@ impl FoxgloveServerListener for ExampleFoxgloveServerListener {
         &mut self,
         _server: FoxgloveServer,
         param_names: Vec<String>,
-        _request_id: Option<RequestId>,
+        _request_id: Option<String>,
     ) -> Vec<Parameter> {
         let mut out = vec![];
         for n in param_names {
@@ -71,7 +70,7 @@ impl FoxgloveServerListener for ExampleFoxgloveServerListener {
         &mut self,
         _server: FoxgloveServer,
         params: Vec<Parameter>,
-        _request_id: Option<RequestId>,
+        _request_id: Option<String>,
     ) -> Vec<Parameter> {
         for p in params {
             self.parameters.insert(p.name.clone(), p);
@@ -88,6 +87,26 @@ impl FoxgloveServerListener for ExampleFoxgloveServerListener {
     }
 }
 
+const SCHEMA: &str = r#"{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.com/product.schema.json",
+  "title": "Product",
+  "description": "A product from Acme's catalog",
+  "type": "object",
+  "properties": {
+    "productId": {
+      "description": "The unique identifier for a product",
+      "type": "integer"
+    }
+  }
+}"#;
+
+#[derive(serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct Product {
+    product_id: i32,
+}
+
 // Example of a simple WebSocket server using warp and tokio_tungstenite
 #[tokio::main]
 async fn main() {
@@ -97,10 +116,16 @@ async fn main() {
         parameters: Default::default(),
     });
     let server = FoxgloveServer::new_with_listener("hello".to_string(), listener);
-    server
-        .start("127.0.0.1", 8765)
-        .await
-        .expect("Failed to start");
+
+    log::info!("Start");
+    let server_ = server.clone();
+    tokio::spawn(async move {
+        server_
+            .run("127.0.0.1", 8765)
+            .await
+            .expect("Failed to start");
+    });
+    log::info!("Started");
 
     let cid = server
         .add_channel(Channel {
@@ -108,18 +133,27 @@ async fn main() {
             topic: "/hello".to_string(),
             encoding: "json".to_string(),
             schema_name: "json".to_string(),
-            schema: "json".to_string(),
+            schema: SCHEMA.to_string(),
             schema_encoding: None,
         })
         .await;
+
+    let mut product_id = 0;
     loop {
+        let product = Product { product_id };
+        product_id += 1;
+        log::info!("Sending");
         tokio::time::sleep(Duration::from_secs(1)).await;
         let dt = SystemTime::now()
             .duration_since(SystemTime::UNIX_EPOCH)
             .unwrap_or(Duration::ZERO)
             .as_nanos();
         server
-            .send_message(cid, dt as u64, b"{\"hello\":\"world\"}".to_vec())
+            .send_message(
+                cid,
+                dt as u64,
+                serde_json::to_vec(&product).expect("Failed to serialize product"),
+            )
             .await;
     }
 }

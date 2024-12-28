@@ -80,6 +80,7 @@ pub struct ClientChannel {
 
 // Remove Status
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct RemoveStatus {
     pub op: String,
     pub status_ids: Vec<String>,
@@ -93,17 +94,27 @@ pub struct Advertise {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Channel {
     pub id: u32,
     pub topic: String,
+
+    #[serde(default)]
     pub encoding: String,
+
+    #[serde(default)]
     pub schema_name: String,
+
+    #[serde(default)]
     pub schema: String,
+
+    #[serde(default)]
     pub schema_encoding: Option<String>,
 }
 
 // Unadvertise
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Unadvertise {
     pub op: String, // unadvertise
     pub channel_ids: Vec<u32>,
@@ -114,13 +125,15 @@ pub struct Unadvertise {
 pub struct ParameterValues {
     pub op: String, // parameterValues
     pub parameters: Vec<Parameter>,
-    pub id: Option<u32>,
+    pub id: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Parameter {
     pub name: String,
     pub value: serde_json::Value,
+
+    #[serde(rename = "type")]
     pub type_: Option<String>,
     pub id: Option<String>,
 }
@@ -136,12 +149,16 @@ pub struct AdvertiseServices {
 pub struct Service {
     pub id: u32,
     pub name: String,
+
+    #[serde(rename = "type")]
     pub type_: String,
+
     pub request: Option<ServiceSchema>,
     pub response: Option<ServiceSchema>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ServiceSchema {
     pub encoding: String,
     pub schema_name: String,
@@ -158,6 +175,7 @@ pub struct UnadvertiseServices {
 
 // Connection Graph Update
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ConnectionGraphUpdate {
     pub op: String,
     pub published_topics: Vec<Topic>,
@@ -168,6 +186,7 @@ pub struct ConnectionGraphUpdate {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Topic {
     pub name: String,
     pub publisher_ids: Vec<String>,
@@ -176,6 +195,7 @@ pub struct Topic {
 
 // Service Call Failure
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ServiceCallFailure {
     pub op: String,
     pub service_id: u32,
@@ -191,6 +211,7 @@ pub struct Subscribe {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Subscription {
     pub id: u32,
     pub channel_id: u32,
@@ -198,6 +219,7 @@ pub struct Subscription {
 
 // Unsubscribe
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Unsubscribe {
     pub op: String,
     pub subscription_ids: Vec<u32>,
@@ -212,6 +234,7 @@ pub struct ClientAdvertise {
 
 // Client Unadvertise
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ClientUnadvertise {
     pub op: String,
     pub channel_ids: Vec<RequestId>,
@@ -219,10 +242,11 @@ pub struct ClientUnadvertise {
 
 // Get Parameters
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct GetParameters {
     pub op: String,
     pub parameter_names: Vec<String>,
-    pub id: Option<u32>,
+    pub id: Option<String>,
 }
 
 // Set Parameters
@@ -230,11 +254,12 @@ pub struct GetParameters {
 pub struct SetParameters {
     pub op: String,
     pub parameters: Vec<Parameter>,
-    pub id: Option<RequestId>,
+    pub id: Option<String>,
 }
 
 // Subscribe Parameter Update
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct SubscribeParameterUpdate {
     pub op: String,
     pub parameter_names: Vec<String>,
@@ -242,6 +267,7 @@ pub struct SubscribeParameterUpdate {
 
 // Unsubscribe Parameter Update
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct UnsubscribeParameterUpdate {
     pub op: String,
     pub parameter_names: Vec<String>,
@@ -261,6 +287,7 @@ struct UnsubscribeConnectionGraph {
 
 // Fetch Asset
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct FetchAsset {
     op: String,
     uri: String,
@@ -269,6 +296,7 @@ struct FetchAsset {
 
 // Fetch Asset Response
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct FetchAssetResponse {
     op: String,
     request_id: u32,

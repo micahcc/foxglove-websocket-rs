@@ -302,13 +302,14 @@ async fn handle_get_parameters(
 
     {
         let out = messages::ParameterValues {
-            op: "ParameterValues".to_string(),
+            op: "parameterValues".to_string(),
             parameters: params,
             id: request_id,
         };
-        let out = Message::Text(
-            serde_json::to_string(&out).expect("Failed to serialize ParameterValues"),
-        );
+
+        let out = serde_json::to_string(&out).expect("Failed to serialize ParameterValues");
+        log::info!("Sending getParameters respose: {out}");
+        let out = Message::Text(out);
 
         let mut state = state.lock().expect("lock");
         let client = state
@@ -340,7 +341,7 @@ async fn handle_set_parameters(
 
     {
         let out = messages::ParameterValues {
-            op: "ParameterValues".to_string(),
+            op: "parameterValues".to_string(),
             parameters: params,
             id: request_id,
         };
@@ -425,6 +426,7 @@ async fn handle_text_input(
     listener: Option<Arc<tokio::sync::Mutex<Box<dyn FoxgloveServerListener + Send>>>>,
     msg: String,
 ) {
+    log::debug!("Request: {msg}");
     let unparsed = match serde_json::from_str(&msg) {
         Err(err) => {
             log::error!("Received unparsable json: {err}");
@@ -933,7 +935,7 @@ impl FoxgloveServer {
         }
     }
 
-    pub async fn start(&self, host: &str, port: u16) -> Result<(), Box<dyn std::error::Error>> {
+    pub async fn run(&self, host: &str, port: u16) -> Result<(), Box<dyn std::error::Error>> {
         // Create a TCP listener on the specified host and port
         let addr = format!("{}:{}", host, port);
         let listener = tokio::net::TcpListener::bind(&addr).await?;
@@ -952,10 +954,11 @@ impl FoxgloveServer {
     }
 
     // Assuming you have an async function to send JSON messages to all connected clients
-    async fn broadcast(&self, message: Vec<u8>) {
+    async fn broadcast(&self, message: Message) {
+        log::info!("Sending {message}");
         let state = self.state.lock().expect("lock");
         for client in state.clients.values() {
-            let _ = client.sender.send(Message::Binary(message.clone()));
+            let _ = client.sender.send(message.clone());
         }
     }
 
@@ -976,7 +979,9 @@ impl FoxgloveServer {
 
         // Broadcast the new channel to all connected clients
         let _ = self
-            .broadcast(serde_json::to_vec(&msg).expect("serializing advertise"))
+            .broadcast(Message::Text(
+                serde_json::to_string(&msg).expect("serializing advertise"),
+            ))
             .await;
 
         return new_id;
@@ -999,7 +1004,9 @@ impl FoxgloveServer {
         };
 
         let _ = self
-            .broadcast(serde_json::to_vec(&msg).expect("serializing unadvertise"))
+            .broadcast(Message::Text(
+                serde_json::to_string(&msg).expect("serializing unadvertise"),
+            ))
             .await;
         return Ok(());
     }
@@ -1021,7 +1028,9 @@ impl FoxgloveServer {
 
         // Broadcast the new channel to all connected clients
         let _ = self
-            .broadcast(serde_json::to_vec(&msg).expect("serializing advertise services"))
+            .broadcast(Message::Text(
+                serde_json::to_string(&msg).expect("serializing advertise services"),
+            ))
             .await;
         return new_id;
     }
@@ -1043,7 +1052,9 @@ impl FoxgloveServer {
         };
 
         let _ = self
-            .broadcast(serde_json::to_vec(&msg).expect("serializing unadvertise"))
+            .broadcast(Message::Text(
+                serde_json::to_string(&msg).expect("serializing unadvertise"),
+            ))
             .await;
         return Ok(());
     }

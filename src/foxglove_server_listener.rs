@@ -5,7 +5,6 @@ use crate::CallId;
 use crate::ChannelId;
 use crate::FoxgloveServer;
 use crate::Parameter;
-use crate::RequestId;
 use crate::ServiceId;
 
 #[async_trait]
@@ -32,13 +31,13 @@ pub trait FoxgloveServerListener {
         &mut self,
         server: FoxgloveServer,
         param_names: Vec<String>,
-        request_id: Option<RequestId>,
+        request_id: Option<String>,
     ) -> Vec<Parameter>;
     async fn on_set_parameters(
         &mut self,
         server: FoxgloveServer,
         params: Vec<Parameter>,
-        request_id: Option<RequestId>,
+        request_id: Option<String>,
     ) -> Vec<Parameter>;
     async fn on_parameters_subscribe(
         &mut self,
