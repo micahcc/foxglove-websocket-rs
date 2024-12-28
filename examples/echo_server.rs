@@ -91,12 +91,14 @@ impl FoxgloveServerListener for ExampleFoxgloveServerListener {
 // Example of a simple WebSocket server using warp and tokio_tungstenite
 #[tokio::main]
 async fn main() {
+    env_logger::init();
+
     let listener = Box::new(ExampleFoxgloveServerListener {
         parameters: Default::default(),
     });
     let server = FoxgloveServer::new_with_listener("hello".to_string(), listener);
     server
-        .start("127.0.0.1", 8323)
+        .start("127.0.0.1", 8765)
         .await
         .expect("Failed to start");
 

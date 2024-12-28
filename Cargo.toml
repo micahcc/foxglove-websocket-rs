@@ -13,3 +13,6 @@ serde_json = "1"
 futures-util = "0"
 async-trait = "0.1"
 log = "0"
+
+[dev-dependencies]
+env_logger = "0"
