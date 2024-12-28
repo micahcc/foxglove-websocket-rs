@@ -691,22 +691,6 @@ async fn handle_binary_input(
     }
 }
 
-struct ConnectionHandler {}
-
-impl tokio_tungstenite::tungstenite::handshake::server::Callback for ConnectionHandler {
-    fn on_request(
-        self,
-        request: &tokio_tungstenite::tungstenite::handshake::server::Request,
-        response: tokio_tungstenite::tungstenite::handshake::server::Response,
-    ) -> Result<
-        tokio_tungstenite::tungstenite::handshake::server::Response,
-        tokio_tungstenite::tungstenite::handshake::server::ErrorResponse,
-    > {
-        log::info!("Got Req: {request:?}, Res: {response:?}");
-        return Ok(response);
-    }
-}
-
 async fn handle_connection(
     stream: tokio::net::TcpStream,
     listener: Option<Arc<tokio::sync::Mutex<Box<dyn FoxgloveServerListener + Send>>>>,
@@ -718,7 +702,21 @@ async fn handle_connection(
         Err(_) => format!("unknown"),
     };
 
-    let handler = ConnectionHandler {};
+    use tokio_tungstenite::tungstenite::handshake::server::Request;
+    use tokio_tungstenite::tungstenite::handshake::server::Response;
+
+    let handler = |request: &Request, mut response: Response| {
+        log::info!("req: {request:?}");
+        let headers = response.headers_mut();
+        headers.append(
+            "Sec-WebSocket-Protocol",
+            "foxglove.websocket.v1"
+                .parse()
+                .expect("failed to parse sub"),
+        );
+        Ok(response)
+    };
+
     let connection = match tokio_tungstenite::accept_hdr_async(stream, handler).await {
         Err(err) => {
             log::error!("Failed to upgrade to websocket, reason: {err}");
@@ -949,6 +947,7 @@ impl FoxgloveServer {
             tokio::spawn(handle_connection(stream, handler, state));
         }
 
+        log::info!("start exited");
         return Ok(());
     }
 
