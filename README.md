@@ -9,4 +9,4 @@ Implementation of [foxglove websocket server](https://github.com/foxglove/ws-pro
 ```
 RUST_LOG=debug ./target/debug/examples/echo_server
 ```
-1. 
+1. When viewing raw messages you should see `productId` incrementing
