@@ -1,5 +1,4 @@
 mod client_state;
-mod foxglove_interface;
 mod foxglove_server;
 mod foxglove_server_listener;
 mod foxglove_state;
