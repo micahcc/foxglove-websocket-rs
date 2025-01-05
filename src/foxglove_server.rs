@@ -790,7 +790,6 @@ async fn handle_connection(
                             let _ = conn_out.send(Message::Pong(Default::default())).await;
                         }
                         Ok(Message::Pong(_)) => { }
-                        Ok(Message::Frame(_)) => { }
                         Ok(Message::Close(_)) => {
                             log::info!("Connection closed");
                             break;
@@ -805,6 +804,7 @@ async fn handle_connection(
                             log::info!("Connection broken: {err}");
                             break;
                         }
+                        _ => { }
                     }
                 }
             }
