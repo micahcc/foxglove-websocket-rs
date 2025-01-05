@@ -35,7 +35,11 @@ fn make_status(level: messages::StatusLevel, message: String) -> Message {
         id: None,
     };
 
-    return Message::Text(serde_json::to_string(&s).expect("Failed to serialize status"));
+    return Message::Text(
+        serde_json::to_string(&s)
+            .expect("Failed to serialize status")
+            .into(),
+    );
 }
 
 async fn handle_subscribe(
@@ -309,7 +313,7 @@ async fn handle_get_parameters(
 
         let out = serde_json::to_string(&out).expect("Failed to serialize ParameterValues");
         log::info!("Sending getParameters respose: {out}");
-        let out = Message::Text(out);
+        let out = Message::Text(out.into());
 
         let mut state = state.lock().expect("lock");
         let client = state
@@ -346,7 +350,9 @@ async fn handle_set_parameters(
             id: request_id,
         };
         let out = Message::Text(
-            serde_json::to_string(&out).expect("Failed to serialize ParameterValues"),
+            serde_json::to_string(&out)
+                .expect("Failed to serialize ParameterValues")
+                .into(),
         );
 
         let mut state = state.lock().expect("lock");
@@ -665,7 +671,7 @@ async fn handle_binary_input(
 
             // finally append response
             response_bytes.extend_from_slice(&resp);
-            let _ = sender.send(Message::Binary(response_bytes));
+            let _ = sender.send(Message::Binary(response_bytes.into()));
         } else {
             log::error!("No implementation of {service_id}");
             let _ = sender.send(make_status(
@@ -743,7 +749,9 @@ async fn handle_connection(
 
         // service_info
         let _ = client.sender.send(Message::Text(
-            serde_json::to_string(&state.server_info).expect("encoding server_info"),
+            serde_json::to_string(&state.server_info)
+                .expect("encoding server_info")
+                .into(),
         ));
 
         let client_id = state.next_client_id;
@@ -754,7 +762,9 @@ async fn handle_connection(
             services: state.services.values().map(|c| c.clone()).collect(),
         };
         let _ = client.sender.send(Message::Text(
-            serde_json::to_string(&services_msg).expect("encoding services"),
+            serde_json::to_string(&services_msg)
+                .expect("encoding services")
+                .into(),
         ));
 
         let channels_msg = Advertise {
@@ -762,7 +772,9 @@ async fn handle_connection(
             channels: state.channels.values().map(|c| c.clone()).collect(),
         };
         let _ = client.sender.send(Message::Text(
-            serde_json::to_string(&channels_msg).expect("encoding advertisement"),
+            serde_json::to_string(&channels_msg)
+                .expect("encoding advertisement")
+                .into(),
         ));
 
         state.clients.insert(client_id, client);
@@ -778,15 +790,16 @@ async fn handle_connection(
                             let _ = conn_out.send(Message::Pong(Default::default())).await;
                         }
                         Ok(Message::Pong(_)) => { }
+                        Ok(Message::Frame(_)) => { }
                         Ok(Message::Close(_)) => {
                             log::info!("Connection closed");
                             break;
                         }
                         Ok(Message::Binary(bin)) => handle_binary_input(
-                            client_id, state.clone(), listener.clone(), bin
+                            client_id, state.clone(), listener.clone(), bin.into()
                         ).await,
                         Ok(Message::Text(txt)) => handle_text_input(
-                            client_id, state.clone(), listener.clone(), txt
+                            client_id, state.clone(), listener.clone(), txt.to_string()
                         ).await,
                         Err(err) => {
                             log::info!("Connection broken: {err}");
@@ -980,7 +993,9 @@ impl FoxgloveServer {
         // Broadcast the new channel to all connected clients
         let _ = self
             .broadcast(Message::Text(
-                serde_json::to_string(&msg).expect("serializing advertise"),
+                serde_json::to_string(&msg)
+                    .expect("serializing advertise")
+                    .into(),
             ))
             .await;
 
@@ -1005,7 +1020,9 @@ impl FoxgloveServer {
 
         let _ = self
             .broadcast(Message::Text(
-                serde_json::to_string(&msg).expect("serializing unadvertise"),
+                serde_json::to_string(&msg)
+                    .expect("serializing unadvertise")
+                    .into(),
             ))
             .await;
         return Ok(());
@@ -1029,7 +1046,9 @@ impl FoxgloveServer {
         // Broadcast the new channel to all connected clients
         let _ = self
             .broadcast(Message::Text(
-                serde_json::to_string(&msg).expect("serializing advertise services"),
+                serde_json::to_string(&msg)
+                    .expect("serializing advertise services")
+                    .into(),
             ))
             .await;
         return new_id;
@@ -1053,7 +1072,9 @@ impl FoxgloveServer {
 
         let _ = self
             .broadcast(Message::Text(
-                serde_json::to_string(&msg).expect("serializing unadvertise"),
+                serde_json::to_string(&msg)
+                    .expect("serializing unadvertise")
+                    .into(),
             ))
             .await;
         return Ok(());
@@ -1074,7 +1095,9 @@ impl FoxgloveServer {
                     id: None,
                 };
                 let _ = client.sender.send(Message::Text(
-                    serde_json::to_string(&msg).expect("serializing params"),
+                    serde_json::to_string(&msg)
+                        .expect("serializing params")
+                        .into(),
                 ));
             }
         }
@@ -1091,7 +1114,7 @@ impl FoxgloveServer {
                 message.extend_from_slice(&sub_id.to_le_bytes()); // Subscription ID
                 message.extend_from_slice(&timestamp_nanos.to_le_bytes()); // Timestamp
                 message.extend_from_slice(&payload); // Payload
-                let _ = client.sender.send(Message::Binary(message));
+                let _ = client.sender.send(Message::Binary(message.into()));
             }
         }
     }
@@ -1103,7 +1126,9 @@ impl FoxgloveServer {
 
         for client in state.clients.values() {
             let _ = client.sender.send(Message::Text(
-                serde_json::to_string(&state.server_info).expect("encoding server_info"),
+                serde_json::to_string(&state.server_info)
+                    .expect("encoding server_info")
+                    .into(),
             ));
         }
     }
