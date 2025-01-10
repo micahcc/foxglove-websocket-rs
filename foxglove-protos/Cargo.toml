@@ -1,0 +1,17 @@
+[package]
+name = "foxglove-protos"
+version = "6.1.4"
+authors = ["Micah Chambers <micahc.vt@gmail.com>"]
+edition = "2021"
+
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[dependencies]
+prost = { workspace = true }
+prost-reflect = { workspace = true }
+prost-wkt-types = { workspace = true }
+once_cell = { workspace = true }
+
+[build-dependencies]
+prost-build = {workspace = true}
+prost-reflect-build = { workspace = true}
