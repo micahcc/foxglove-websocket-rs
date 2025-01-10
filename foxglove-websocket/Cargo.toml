@@ -1,5 +1,5 @@
 [package]
-name = "foxglove-websocket-rs"
+name = "foxglove-websocket"
 version = "0.1.0"
 authors = ["Micah Chambers (eos) <mchambers@anduril.com>"]
 edition = "2021"
