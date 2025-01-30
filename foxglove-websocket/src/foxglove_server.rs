@@ -968,7 +968,6 @@ impl FoxgloveServer {
 
     // Assuming you have an async function to send JSON messages to all connected clients
     async fn broadcast(&self, message: Message) {
-        log::info!("Sending {message}");
         let state = self.state.lock().expect("lock");
         for client in state.clients.values() {
             let _ = client.sender.send(message.clone());
